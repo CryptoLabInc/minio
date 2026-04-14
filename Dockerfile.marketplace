@@ -1,0 +1,37 @@
+FROM golang:1.25.9-alpine AS build
+
+ARG RELEASE_VERSION=2025-10-15T17-29-55Z
+ARG COMMIT_ID=9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a
+ARG SHORT_COMMIT_ID=9e49d5e7a648
+
+ENV CGO_ENABLED=0 \
+    GOTOOLCHAIN=local \
+    MINIO_RELEASE=RELEASE
+
+WORKDIR /src
+COPY . .
+
+RUN set -eux; \
+    ldflags="-s -w"; \
+    ldflags="${ldflags} -X github.com/minio/minio/cmd.Version=${RELEASE_VERSION}"; \
+    ldflags="${ldflags} -X github.com/minio/minio/cmd.CopyrightYear=2025"; \
+    ldflags="${ldflags} -X github.com/minio/minio/cmd.ReleaseTag=RELEASE.${RELEASE_VERSION}"; \
+    ldflags="${ldflags} -X github.com/minio/minio/cmd.CommitID=${COMMIT_ID}"; \
+    ldflags="${ldflags} -X github.com/minio/minio/cmd.ShortCommitID=${SHORT_COMMIT_ID}"; \
+    ldflags="${ldflags} -X github.com/minio/minio/cmd.GOPATH=/go"; \
+    ldflags="${ldflags} -X github.com/minio/minio/cmd.GOROOT=/usr/local/go"; \
+    GOOS=linux GOARCH=amd64 go build -tags kqueue -trimpath --ldflags "${ldflags}" -o /out/minio .
+
+FROM alpine:3.23
+
+RUN apk add --no-cache ca-certificates && \
+    chmod -R 777 /usr/bin
+
+COPY --from=build /out/minio /usr/bin/minio
+COPY dockerscripts/docker-entrypoint.sh /usr/bin/docker-entrypoint.sh
+
+EXPOSE 9000
+VOLUME ["/data"]
+
+ENTRYPOINT ["/usr/bin/docker-entrypoint.sh"]
+CMD ["minio"]
