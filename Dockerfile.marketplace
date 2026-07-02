@@ -28,7 +28,11 @@ RUN set -eux; \
 
 FROM alpine:3.23
 
-RUN apk add --no-cache ca-certificates && \
+# Upgrade the base openssl libs (libcrypto3/libssl3) to pick up security fixes
+# regardless of the cached base image layer. alpine:3.23 ships these
+# transitively (busybox ssl_client), and pinning >=3.5.7-r0 clears CVE-2026-34182
+# (CMS AuthEnvelopedData, CVSS 9.1) plus the sibling openssl CVEs fixed in 3.5.7-r0.
+RUN apk add --no-cache ca-certificates "libcrypto3>=3.5.7-r0" "libssl3>=3.5.7-r0" && \
     chmod -R 777 /usr/bin
 
 COPY --from=build /out/minio /usr/bin/minio
