@@ -1,7 +1,7 @@
 # Build on the native host arch (BUILDPLATFORM) and cross-compile the Go binary
 # to TARGETARCH. CGO is disabled below, so this needs no cross toolchain and
 # avoids slow QEMU emulation. buildx injects BUILDPLATFORM/TARGETARCH.
-FROM --platform=$BUILDPLATFORM golang:1.25.9-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.26.4-alpine AS build
 
 ARG TARGETARCH
 ARG RELEASE_VERSION=2025-10-15T17-29-55Z
