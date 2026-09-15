@@ -16,7 +16,8 @@ jobs:
 
       - name: Build image
         run: |
-          docker build -t minio:marketplace -f Dockerfile.marketplace .
+          docker build -t minio:marketplace -f Dockerfile.marketplace \
+            --build-arg SOURCE_COMMIT="${{ github.event.pull_request.head.sha || github.sha }}" .
 
       - name: Generate SBOM (Syft)
         uses: anchore/sbom-action@v0

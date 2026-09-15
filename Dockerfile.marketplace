@@ -5,8 +5,10 @@ FROM --platform=$BUILDPLATFORM golang:1.26.5-alpine AS build
 
 ARG TARGETARCH
 ARG RELEASE_VERSION=2025-10-15T17-29-55Z
-ARG COMMIT_ID=9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a
-ARG SHORT_COMMIT_ID=9e49d5e7a648
+# The commit this tree was built from. Required and deliberately without a
+# default: a modified build whose reported commit points at upstream sends
+# anyone looking for the corresponding source to a tree that is not this one.
+ARG SOURCE_COMMIT
 
 ENV CGO_ENABLED=0 \
     GOTOOLCHAIN=local \
@@ -16,12 +18,14 @@ WORKDIR /src
 COPY . .
 
 RUN set -eux; \
+    test -n "${SOURCE_COMMIT}" || { echo "SOURCE_COMMIT build-arg is required"; exit 1; }; \
+    short_commit=$(echo "${SOURCE_COMMIT}" | cut -c1-12); \
     ldflags="-s -w"; \
     ldflags="${ldflags} -X github.com/minio/minio/cmd.Version=${RELEASE_VERSION}"; \
     ldflags="${ldflags} -X github.com/minio/minio/cmd.CopyrightYear=2025"; \
     ldflags="${ldflags} -X github.com/minio/minio/cmd.ReleaseTag=RELEASE.${RELEASE_VERSION}"; \
-    ldflags="${ldflags} -X github.com/minio/minio/cmd.CommitID=${COMMIT_ID}"; \
-    ldflags="${ldflags} -X github.com/minio/minio/cmd.ShortCommitID=${SHORT_COMMIT_ID}"; \
+    ldflags="${ldflags} -X github.com/minio/minio/cmd.CommitID=${SOURCE_COMMIT}"; \
+    ldflags="${ldflags} -X github.com/minio/minio/cmd.ShortCommitID=${short_commit}"; \
     ldflags="${ldflags} -X github.com/minio/minio/cmd.GOPATH=/go"; \
     ldflags="${ldflags} -X github.com/minio/minio/cmd.GOROOT=/usr/local/go"; \
     GOOS=linux GOARCH=${TARGETARCH} go build -tags kqueue -trimpath --ldflags "${ldflags}" -o /out/minio .
@@ -37,6 +41,18 @@ RUN apk add --no-cache ca-certificates "libcrypto3>=3.5.7-r0" "libssl3>=3.5.7-r0
 
 COPY --from=build /out/minio /usr/bin/minio
 COPY dockerscripts/docker-entrypoint.sh /usr/bin/docker-entrypoint.sh
+# Same paths Dockerfile.release ships them at.
+COPY LICENSE /licenses/LICENSE
+COPY CREDITS /licenses/CREDITS
+
+# Last in the stage on purpose: an ARG invalidates the cache of everything
+# after it, and the commit changes on every build.
+ARG SOURCE_COMMIT
+LABEL org.opencontainers.image.title="MinIO (CryptoLab build)" \
+      org.opencontainers.image.description="MinIO built from CryptoLabInc/minio, a modified fork of minio/minio" \
+      org.opencontainers.image.source="https://github.com/CryptoLabInc/minio" \
+      org.opencontainers.image.revision="${SOURCE_COMMIT}" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
 
 EXPOSE 9000
 VOLUME ["/data"]
