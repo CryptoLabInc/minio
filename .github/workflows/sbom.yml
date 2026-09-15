@@ -2,9 +2,9 @@ name: SBOM & Vulnerability Scan
 
 on:
   push:
-    branches: ["release/*"]
+    branches: ["main", "release/*"]
   pull_request:
-    branches: ["release/*"]
+    branches: ["main", "release/*"]
   workflow_dispatch:
 
 jobs:
